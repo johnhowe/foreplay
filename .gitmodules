@@ -1,0 +1,5 @@
+[submodule "ChibiOS"]
+	path = ChibiOS
+	url = git://github.com/ChibiOS-Upstream/ChibiOS-RT.git
+	branch = stable_2.4.x
+	ignore = dirty

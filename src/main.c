@@ -18,68 +18,68 @@ volatile int edgeTicks = 200;
 
 msg_t wheelThd(void *arg)
 {
-	(void) arg;
+    (void) arg;
 
-	systime_t lastEdgeTime;
-	int tooth = 0;
-	int direction = 0;
-	while (1) {
-		lastEdgeTime = chTimeNow();
-		if (tooth < (TEETH - MISSING)) {
-			palTogglePad(GPIOD, GPIOD_RPM_OUT);
-		}
+    systime_t lastEdgeTime;
+    int tooth = 0;
+    int direction = 0;
+    while (1) {
+        lastEdgeTime = chTimeNow();
+        if (tooth < (TEETH - MISSING)) {
+            palTogglePad(GPIOD, GPIOD_RPM_OUT);
+        }
 
-		if (direction) {
-			++tooth;
-			if (tooth >= TEETH) {
-				tooth = 0;
-			}
-		}
+        if (direction) {
+            ++tooth;
+            if (tooth >= TEETH) {
+                tooth = 0;
+            }
+        }
 
-		direction = !direction;
-		chThdSleepUntil(lastEdgeTime + edgeTicks);
-	}
+        direction = !direction;
+        chThdSleepUntil(lastEdgeTime + edgeTicks);
+    }
 }
 
 void updateEdgeTicks(int rpm)
 {
-	if (rpm == 0) {
-		rpm = 1;
-	}
-	int teethPerSecond = (TEETH / 60) * rpm; // nice when TEETH == 60 - fixme for other counts
-	edgeTicks = US2ST(500000/teethPerSecond); // :S
+    if (rpm == 0) {
+        rpm = 1;
+    }
+    edgeTicks = (30 * CH_FREQUENCY) / (TEETH * rpm);
 }
 
 int main(void)
 {
-	halInit();
-	chSysInit();
+    halInit();
+    chSysInit();
 
-	palSetGroupMode(GPIOD, GPIOD_LED_BLUE | GPIOD_LED_GREEN | GPIOD_LED_ORANGE | GPIOD_LED_RED, 0, PAL_MODE_OUTPUT_PUSHPULL);
+    palSetGroupMode(GPIOD, GPIOD_LED_BLUE | GPIOD_LED_GREEN | GPIOD_LED_ORANGE | GPIOD_LED_RED, 0, PAL_MODE_OUTPUT_PUSHPULL);
 
-	chThdCreateStatic(wheelStack, sizeof(wheelStack), LOWPRIO, wheelThd, NULL);
+    chThdCreateStatic(wheelStack, sizeof(wheelStack), LOWPRIO, wheelThd, NULL);
 
 #define RPM_RAMP_PER_MIN 20000
 #define MAX_RPM  20000
-	int usPerRpmInc = 60000000/RPM_RAMP_PER_MIN;
+    int usPerRpmInc = 60000000/RPM_RAMP_PER_MIN;
 
-	int rpm = 100;
-	int rampUp = 1;
-	while (1) {
-		systime_t lastUpdateTime = chTimeNow();
-		updateEdgeTicks(rpm);
-		palTogglePad(GPIOD, GPIOD_LED_BLUE);
-		rpm = rampUp ? rpm + 1 : rpm - 1;
-		if (rpm == MAX_RPM) {
-			rampUp = FALSE;
-		} else if (rpm == 100) {
-			rampUp = TRUE;
-		}
-		chThdSleepUntil(lastUpdateTime + US2ST(usPerRpmInc));
-	}
+    int rpm = 100;
+    int rampUp = 1;
+    while (1) {
+        palTogglePad(GPIOD, GPIOD_LED_BLUE);
+        systime_t lastUpdateTime = chTimeNow();
+        updateEdgeTicks(rpm);
+        rpm = rampUp ? rpm + 1 : rpm - 1;
+        if (rpm == MAX_RPM) {
+            rampUp = FALSE;
+        } else if (rpm == 100) {
+            rampUp = TRUE;
+        }
+        palTogglePad(GPIOD, GPIOD_LED_BLUE);
+        chThdSleepUntil(lastUpdateTime + US2ST(usPerRpmInc));
+    }
 
-	chThdExit(1);
+    chThdExit(1);
 
-	return 0;
+    return 0;
 }
 

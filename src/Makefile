@@ -1,10 +1,8 @@
-PROJECT = sparkleParty
+PROJECT = foreplay
 #CHIBIOS = ../ChibiOS
 PRJ_C_SRC = main.c 
 PRJ_INC = ./inc
 
-GIT_VERSION := $(shell git describe --long --tags --dirty --always)
-#.PHONY: api.c
 ##############################################################################
 # Build global options
 # NOTE: Can be overridden externally.
@@ -12,7 +10,7 @@ GIT_VERSION := $(shell git describe --long --tags --dirty --always)
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -ggdb -fomit-frame-pointer -falign-functions=16 -std=gnu99 -DVERSION=\"$(GIT_VERSION)\" -O0
+  USE_OPT = -ggdb -O2 -fomit-frame-pointer -falign-functions=16 -std=gnu99 -O0
 endif
 
 # C specific options here (added to USE_OPT).
@@ -28,6 +26,16 @@ endif
 # Enable this if you want the linker to remove unused code and data
 ifeq ($(USE_LINK_GC),)
   USE_LINK_GC = yes
+endif
+
+# Linker extra options here.
+ifeq ($(USE_LDOPT),)
+  USE_LDOPT = 
+endif
+
+# Enable this if you want link time optimizations (LTO)
+ifeq ($(USE_LTO),)
+  USE_LTO = no
 endif
 
 # If enabled, this option allows to compile the application in THUMB mode.
@@ -48,15 +56,9 @@ endif
 # Architecture or project specific options
 #
 
-# Enables the use of FPU on Cortex-M4.
-# Enable this if you really want to use the STM FWLib.
+# Enables the use of FPU on Cortex-M4 (no, softfp, hard).
 ifeq ($(USE_FPU),)
   USE_FPU = no
-endif
-
-# Enable this if you really want to use the STM FWLib.
-ifeq ($(USE_FWLIB),)
-  USE_FWLIB = no
 endif
 
 #
@@ -75,6 +77,7 @@ include $(CHIBIOS)/os/hal/hal.mk
 include $(CHIBIOS)/os/ports/GCC/ARMCMx/STM32F4xx/port.mk
 include $(CHIBIOS)/os/kernel/kernel.mk
 
+
 # Define linker script file here
 LDSCRIPT= $(PORTLD)/STM32F407xG.ld
 #LDSCRIPT= $(PORTLD)/STM32F407xG_CCM.ld
@@ -86,6 +89,8 @@ CSRC = $(PORTSRC) \
        $(HALSRC) \
        $(PLATFORMSRC) \
        $(BOARDSRC) \
+       $(CHIBIOS)/os/various/devices_lib/accel/lis302dl.c \
+       $(CHIBIOS)/os/various/chprintf.c \
        $(PRJ_C_SRC)
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -115,11 +120,11 @@ TCPPSRC =
 # List ASM source files here
 ASMSRC = $(PORTASM)
 
-INCDIR = $(PORTINC) $(KERNINC) $(TESTINC) \
+INCDIR = $(PORTINC) $(KERNINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) \
          $(CHIBIOS)/os/various/devices_lib/accel \
-		 $(CHIBIOS)/os/various \
-		 $(PRJ_INC)
+         $(CHIBIOS)/os/various \
+	 $(PRJ_INC)
 
 #
 # Project, sources and paths
@@ -143,6 +148,7 @@ LD   = $(TRGT)gcc
 CP   = $(TRGT)objcopy
 AS   = $(TRGT)gcc -x assembler-with-cpp
 OD   = $(TRGT)objdump
+SZ   = $(TRGT)size
 HEX  = $(CP) -O ihex
 BIN  = $(CP) -O binary
 
@@ -202,31 +208,15 @@ UINCDIR =
 ULIBDIR =
 
 # List all user libraries here
-ULIBS = -lm
+ULIBS =
 
 #
 # End of user defines
 ##############################################################################
 
-ifeq ($(USE_FPU),yes)
-  USE_OPT += -mfloat-abi=softfp -mfpu=fpv4-sp-d16 -fsingle-precision-constant
-  DDEFS += -DCORTEX_USE_FPU=TRUE
-else
-  DDEFS += -DCORTEX_USE_FPU=FALSE
-endif
+RULESPATH = $(CHIBIOS)/os/ports/GCC/ARMCMx
+include $(RULESPATH)/rules.mk
 
-ifeq ($(USE_FWLIB),yes)
-  include $(CHIBIOS)/ext/stm32lib/stm32lib.mk
-  CSRC += $(STM32SRC)
-  INCDIR += $(STM32INC)
-  USE_OPT += -DUSE_STDPERIPH_DRIVER
-endif
-
-include $(CHIBIOS)/os/ports/GCC/ARMCMx/rules.mk
-
-.PHONY: victual
-victual: USE_OPT+=-DVICTUAL
-victual: all
 
 install: all
 	@echo Flashing
